@@ -1,26 +1,45 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def f(t):
-    return np.exp(-t) * np.cos(2*np.pi*t)
+graph_data = open('samplefile.txt','r').read()
 
-t1 = np.arange(0.0, 5.0, 0.1)
-t2 = np.arange(0.0, 5.0, 0.02)
+colorarray = ['b','g','r','c','m','y','k','0.75']
 
-plt.figure(1)
-plt.subplot(221)
-plt.plot(t1, f(t1), 'bo', t2, f(t2), 'k')
+lines = graph_data.split('\n')
 
-plt.subplot(222)
-plt.plot(t2, np.cos(2*np.pi*t2), 'r--')
+n = (len(lines))
+data = np.zeros((n,8))
+i=0
+j=0
 
-plt.subplot(223)
-plt.plot(t2, np.cos(2*np.pi*t2), 'r--')
+x = np.arange(0,n-25)
 
-plt.subplot(224)
-plt.plot(t2, np.cos(2*np.pi*t2), 'r--')
-
-
-
+for line in lines[:-1]: #the last acquisition may be corrupted, sudden termination of serial comm
+    if(len(line)>1):
+        t = line.split(',')
+        for value in t:
+            data[i,j] = t[j]
+            j+=1
+        j=0
+        i+=1
+        
+fig, ax = plt.subplots(4,2)
+for row in range(4):
+    for col in range(2):
+        #filter out the first 20 values and the last 5, which can be corrupted
+        y = data[20:-5,row*2+col]
+        ax[row][col].plot(x,y)
+        
+fig2, ax2 = plt.subplots(1,1)
+for p in range(8):
+    y = data[20:-5,p]
+    ax2.plot(x,y,color=colorarray[p])
+    
+    
+legend = ax2.legend(['ch1','ch2','ch3','ch4','ch5','ch6','ch7','ch8' ], loc='upper left')
+    
+for label in legend.get_texts():
+    label.set_fontsize('x-large')
 
 plt.show()
+    

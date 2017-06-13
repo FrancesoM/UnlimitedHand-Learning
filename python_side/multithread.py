@@ -36,20 +36,23 @@ ROWS = 4
 COLS = 2
 
 global ACQUISITION_TIME
-ACQUISITION_TIME = 20
-global SWITCHING_TIME
-SWITCHING_TIME = 5
+ACQUISITION_TIME = 60
+global SAMPLING_INTERVAL
+SAMPLING_INTERVAL = 0.5
+global n_MOVEMENT_TO_UNDERSTAND
+n_MOVEMENT_TO_UNDERSTAND = 4 #up down left right
+global movements
+movements = ["up\n","down\n","left\n","right\n"]
 
 
 class SerialReader(threading.Thread):
     
-    def __init__(self, name, port_name, baud, data, event_run,event_close):
+    def __init__(self, name, port_name, baud, data, event_run):
         threading.Thread.__init__(self)
         self.name = name
         self.port_name = port_name
         self.baud = baud
         self.event_run = event_run
-        self.event_close = event_close
         self.data = data
         print("Attempting to open port %s at baud %d" %(self.port_name,self.baud))
         self.port = serial.Serial(self.port_name,self.baud,timeout=1)
@@ -58,10 +61,10 @@ class SerialReader(threading.Thread):
     def run(self):
         
         start_time = time.time()
-        switch_time = start_time
         running = True
         while(running):
             try:
+                #actual decoding
                 if(self.port.read(END_BUNDLE_BYTE).decode("raw_unicode_escape") == '!!!'):
                     temp = self.port.read(BUNDLE_LENGTH)
                     #print(temp)
@@ -70,16 +73,12 @@ class SerialReader(threading.Thread):
                     #allow the plotting thread to access the data
                     self.event_run.set()
                     self.event_run.clear()
-                    self.event_close.clear()
-                    time.sleep(0.5)
+                    
+                    time.sleep(SAMPLING_INTERVAL)
+                    
                 total_elapsed = time.time() - start_time
-                switch_elapsed = time.time() - switch_time
-                print("Total Time: %d, Switch Time: %d, data from %s: "%(total_elapsed,switch_elapsed,self.name))
                 
-                if(switch_elapsed >= SWITCHING_TIME-1 ):
-                    switch_time = time.time() #reset counter
-                    self.event_close.set()
-                    print("From %s, notifying threads"%self.name)
+                
                 if(total_elapsed > ACQUISITION_TIME): #more than 30 seconds of acquisition
                     print("From %s, closing port"%self.name)    
                     self.port.close()
@@ -91,22 +90,24 @@ class SerialReader(threading.Thread):
 class DynamicPlotter(threading.Thread):
     
     
-    def __init__(self,name,data,event_run,event_close):
+    def __init__(self,name,data,event_run):
         threading.Thread.__init__(self)
         # Scrive un file.
         self.out_file = open("test.txt","w")
         self.data = data
         self.event_run = event_run
-        self.event_close = event_close
         self.name = name
-                
+        self.number_of_acq_total = ACQUISITION_TIME/SAMPLING_INTERVAL 
+        self.number_of_acq_per_movement = self.number_of_acq_total/n_MOVEMENT_TO_UNDERSTAND
+        
     def run(self):
         
         running = True
+        counter_total = 0
         counter = 0
         while(running):
             self.event_run.wait()
-            print("From %s, writing to the file!"%self.name)
+            #print("From %s, writing to the file!"%self.name)
             self.out_file.write(str(self.data[0])) #only to avoid printing a coma
             for value in self.data[1:]:
                 self.out_file.write(',')
@@ -114,13 +115,25 @@ class DynamicPlotter(threading.Thread):
                 
             self.out_file.write('\n')
             
-            if(self.event_close.is_set()):
-                counter = counter +1
-                print("%s %d"%(self.name,counter))
-                self.out_file.write("Switching sensor\n")
+            if(counter == 0):
+                print("Counter total:%d"%counter_total)
+                index = int(counter_total/self.number_of_acq_per_movement)
+                message = "Movement: %s"%movements[index]
+                #why is this working? 
+                #let's suppose: counter=0 and counter_total = 
+                print("%s: %s"%(self.name,message))
+                self.out_file.write(message)
+                
+            counter_total += 1
+            counter += 1
+            
+            if(counter == self.number_of_acq_per_movement):
+                #reset counter
+                counter = 0
             
             #print("From %s, checking if set: %d!"%(self.name,self.event_close.is_set()))
-            if(counter >= ACQUISITION_TIME/SWITCHING_TIME ):
+            if(counter_total == self.number_of_acq_total ): #6 acquisitions, 
+                
                 print("From %s, closing the file!"%self.name)
                 self.out_file.close()
                 running = False
@@ -132,12 +145,11 @@ if __name__ == "__main__":
     data = np.zeros(NUM_CHANNELS)
     
     event_run = threading.Event()
-    event_close = threading.Event()
     
     try:
         
-        s = SerialReader("Serial Reader",PORT,BAUD,data,event_run,event_close)    
-        p = DynamicPlotter("File maker",data,event_run,event_close)
+        s = SerialReader("Serial Reader",PORT,BAUD,data,event_run)    
+        p = DynamicPlotter("File maker",data,event_run)
         
         s.start()
         p.start()

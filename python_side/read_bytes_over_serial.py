@@ -24,6 +24,14 @@ BUNDLE_LENGTH = NUM_CHANNELS*BYTE_PER_CHANNEL
 
 data = np.zeros(NUM_CHANNELS)
 
+graph_data = open('samplefile.txt','w')
+print("3..")
+time.sleep(0.5)
+print("2..")
+time.sleep(0.5)
+print("1..")
+time.sleep(0.5)
+print("Starting")
 
 while(START):
     try:
@@ -33,9 +41,17 @@ while(START):
             
             for channel in range(0,NUM_CHANNELS):
                 data[channel] = (temp[channel*BYTE_PER_CHANNEL]<<8)|(temp[channel*BYTE_PER_CHANNEL + 1 ])
-                print(data)
+                #print(data)
+                graph_data.write(str(data[0]))
+                for value in data[1:]:
+                    graph_data.write(',')
+                    graph_data.write(str(value))
+                graph_data.write('\n')
+                #time.sleep(0.1)
     except KeyboardInterrupt:
+        print("Closing")
         port.close()
+        graph_data.close()
         break
     
     
