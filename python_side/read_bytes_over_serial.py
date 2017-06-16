@@ -10,7 +10,7 @@ import numpy as np
 import time
 
 
-PORT = "COM3"
+PORT = "COM10"
 BAUD = 115200
 port = serial.Serial(PORT,BAUD,timeout=1)
 
@@ -24,7 +24,7 @@ BUNDLE_LENGTH = NUM_CHANNELS*BYTE_PER_CHANNEL
 
 data = np.zeros(NUM_CHANNELS)
 
-graph_data = open('samplefile.txt','w')
+graph_data = open('/test/lowtohigh_position.txt','w')
 print("3..")
 time.sleep(0.5)
 print("2..")
