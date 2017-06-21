@@ -5,50 +5,139 @@ Created on Thu Jun 15 09:32:16 2017
 @author: Francesco
 """
 
-from sklearn.cluster import AffinityPropagation
+from sklearn.preprocessing import StandardScaler
 import numpy as np
 import threading as th
 import time
 import re
+import matplotlib.pyplot as plt
+
+def load_dataset(file):
+    
+    n_channels = 8
+    
+    f = open(file,'r')
+    #jump to the second block(the first is corrupted)
+    while(1):
+        if(f.read(1) == '-'):
+            start = f.tell()+2
+            break
+    f.seek(start)
+    #now we are ready to read the first block, which is the first feature actually
+    #understand the block length, must be equal for each block
+    dataset = f.read()
+    n_linee = 0
+    
+    for line in dataset.split('\n'):
+        n_linee+=1
+        if(line == '-'):
+            n_linee -= 1
+            break
+    len_blocco = n_linee+1
+    
+    #create the structure that will hold the features
+    #each feature is a matrix n_linee*9 (n_channels + classe movimento)
+    
+    n_blocks = (len(dataset.split('\n'))-1)/len_blocco
+    
+    features = np.zeros((n_linee,n_channels+1,int(n_blocks)+1))
+    
+    i = 0
+    j = 0
+    block = 0
+    for line in dataset.split('\n'):
+        if(len(line)<5):
+            block+=1
+            i = 0
+            #print(line)
+        else:
+            for value in line.split(','):
+                features[i,j,block] = value
+                j+=1
+            #print(line)
+            j=0
+            i+=1
+    
+    return features
+    
+    
+def gradient(data,channels):
+    der = np.zeros((len(data),channels))
+    for i in range(1,len(data)):
+        der[i,:] = data[i,:]-data[i-1,:]
+    return der
+
+def moving_average(data,samp_for_average):
+    n_windows = int(len(data)/samp_for_average)
+    for i in range(n_windows):
+        data[i*samp_for_average:(i+1)*samp_for_average] = np.average(data[i*samp_for_average:(i+1)*samp_for_average])
+
 
 def open_outfile(file,rep):
     f = open(file,'r').read()
     lines = f.split('\n')
-    first_matrix = lines[rep].split('\t')[:-1]
-    matrix = np.array(re.findall("\d+\.\d+",first_matrix[0]),dtype='f')
+    info_decoded = lines[rep].split('\t')
+    first_matrix = info_decoded[:-1]
+    n_cluster = int(info_decoded[-1])
+    #this code fails when there is a number without decimals, because 2. doesn't match the pattern
+    #since it searches for another number after the dot, that's the reason why the second "try"
+    #to catch this behaviour we say that two possible patterns may exist, 3.0 is recognized as well as 3.
+    patterns=re.compile(r'-\d+\.\d+|\d+\.\d+|-\d+\.|\d+\.')
+    #as a note: we search for both positive or negative(minus sign) but the order is important,
+    #because if -\d+\. was before -\d+\.\d+, the number -2.3 would be recognized as -2.
+    matrix = np.array(patterns.findall(first_matrix[0]),dtype='f')
     
     for row in first_matrix[1:]: #the first has alread been taken
         try:
-            temp = np.array(re.findall("\d+\.\d+",row),dtype='f')
+            temp = np.array(patterns.findall(row),dtype='f')
             matrix = np.vstack((matrix,temp))
         except ValueError:
-            print(row)
+            print("Error:",row)
     
-    return matrix
+    return (matrix,n_cluster)
 
 #load data
-def load_data_into_matrix(file):
+def load_data_into_matrix(file,startline=0,endline=-1,cols=8,mode="signal"):
     graph_data = open(file,'r').read()
     
     lines = graph_data.split('\n')
-    n_channels = 8
+    n_channels = cols
     n_lines = (len(lines))
-    data = np.zeros((n_lines - 20,n_channels)) #read all channels (8), plot only the desired
-    i=0
-    j=0
+    vertical_lines = len(lines[startline:endline])
+    data = np.zeros((vertical_lines,n_channels)) #read all channels (8), plot only the desired
+
     
     #the last acquisition may be corrupted, sudden termination of serial comm
     #the first lines may be corrupted by giggering of the sensors/serial reads garbage
-    for line in lines[19:-1]: 
-        if(len(line)>1):
-            t = line.split(',')
-            for value in t:
-                data[i,j] = t[j]
-                j+=1
-            j=0
-            i+=1
+    if mode == "signal":
+        i=0
+        j=0
+        for line in lines[startline:endline]: 
+            if(len(line)>1):
+                t = line.split(',')
+                for value in t:
+                    data[i,j] = t[j]
+                    j+=1
+                j=0
+                i+=1
+        
+        return data
     
-    return data
+    if mode == "encoded":
+        i=0
+        j=0
+        data = np.chararray((n_lines - (startline-endline),n_channels))
+        for line in lines[startline:endline]: 
+            if(len(line)>1):
+                t = line.split(',')
+                for value in t:
+                    data[i,j] = t[j]
+                    
+                    j+=1
+                j=0
+                i+=1
+        
+        return data
     
 def unsigned_derivative(x_t,x_tmen1):
     return np.abs((x_t - x_tmen1)/x_t)
@@ -58,7 +147,10 @@ colorarray = ['b','g','r','c','m','y','k','0.75']
 mode = {'polso_piegato_alto':[0,1,4],   #estensori
         'polso_piegato_basso':[2,3,7],   #flessori
         'polso_ruotato_esterno':[0,3],  #ulnari
-        'polso_ruotato_interno':[1,2]}  #radiali
+        'polso_ruotato_interno':[1,2],  #radiali
+        'updown':[0,1],
+        'intest':[2,3],
+        'tutti':range(8)}
         
 class track(object):
     def __init__(self,data):
@@ -76,6 +168,12 @@ class track(object):
         self.baseline = np.sum(self.data[0:number_of_samples,:],axis=0)/number_of_samples
         self.data -= self.baseline
         
+    def moving_avg(self,samp_for_average):
+        n_windows = int(len(self.data)/samp_for_average)
+        for s in range(self.channels):
+            for i in range(n_windows):
+                self.data[i*samp_for_average:(i+1)*samp_for_average,s] = np.average(self.data[i*samp_for_average:(i+1)*samp_for_average,s])
+        
     def __getitem__(self,index):
         return self.data[index[0]][index[1]]
     
@@ -87,10 +185,9 @@ class track(object):
         
 
 class computation(th.Thread):
-    def __init__(self,name,track_agonist,track_antagonist):
+    def __init__(self,name,signal):
         th.Thread.__init__(self)
-        self.track_agonist = track_agonist
-        self.track_antagonist = track_antagonist
+        self.signal = signal
         self.name = name
         
     def run(self):
@@ -105,97 +202,51 @@ class computation(th.Thread):
         #feature extraction: position: baseline and movement: derivative
         
         #t represents time that goes by
+        """ !!!! MUST BE A MULTIPLE OF 10 !!!! """
+        windows_length = 10
+        n_chann = self.signal.shape()[1]
+        encoder = (lambda Y: 'a' if Y > windows_length/100 else 'b' if Y > -windows_length/100 else 'c')
         
-        windows_length = 100
-        n_chann = self.track_agonist.shape()[1]
-        position = 0
-        line = 0
+        encoded = ['x']*8
+                         
+        t = 0
         
         outfile = open('thread_data'+self.name+'.txt','w')
         #outfilerrr = open('prova_pos'+self.name+'.txt','w')
         
-        print("%s: samples %d, channels %d"%(self.name,self.track_agonist.shape()[0],self.track_agonist.shape()[1]) )
-        while(position <= self.track_agonist.shape()[0] - windows_length):
-            #start_time = time.time()
-            #print(t)
-            
-            #obtain the features, position and movement
-            #axis = 0 is used to have the mean for the columns, aka during the 50 samples
-            temp_agonist = (self.track_agonist[position:position+windows_length,:])
-            temp_antagonist = (self.track_antagonist[position:windows_length,:])
-
-            
-            #separation in the plane/space
-            #assume we have 2 channels
-            #we should plot win1_position[0] against win1_position[1]
-            #and win2_position[0] against win2_position[2] since they
-            #represent a point into the "channel spanned space"
-            
-            X_pos = np.vstack((temp_agonist,temp_antagonist))
-            #X_mov = np.concatenate((win1_movement,win2_movement),axis=0)
-#            if (position == 0 and self.name=='up-down'):
-#                print(X_pos)
-#                print(temp_agonist)
-#                print(temp_antagonist)
-#            
-            try:            
-                af_pos = AffinityPropagation(preference=-2).fit(X_pos)
-                cluster_centers_indices_pos = af_pos.cluster_centers_indices_
-                #labels = af.labels_
-            except ValueError:
-                
-                print("X_POS:\n",X_pos)
-                print("Position:\n",position)
-            #af_mov = AffinityPropagation(preference=-2).fit(X_mov)
-            #cluster_centers_indices_mov = af_mov.cluster_centers_indices_
-            for val in X_pos:
-                outfile.write(str(val)+'\t')
-                
-            try:
-                n_clusters_pos = len(cluster_centers_indices_pos)
-                outfile.write(str(n_clusters_pos))
-            except TypeError:
-                #print("%s: Cannot find any suitable cluster. Cluster number = 0\n"%self.name)
-                outfile.write(str(0))
-                
-#            outfile.write(',')
-#            
-#            try:
-#                n_clusters_mov = len(cluster_centers_indices_mov)
-#                outfile.write(str(n_clusters_mov))
-#            except TypeError:
-#                outfile.write(str(0))
-                
-                
-#                if (n_clusters_pos > 1 ):
-#                    print("%s: Position is discriminated. Cluster number = %d"%(self.name,n_clusters_pos))
-#                else:
-#                    print("%s: Only one cluster for position"%self.name)
-#                if (n_clusters_mov > 1):
-#                    print("%s: Movement is discriminated. Cluster number = %d"%(self.name,n_clusters_mov))
-#                else:
-#                    print("%s: Only one cluster for movement"%self.name)
-             
-
-#            if ( t > 50 and t < 100):
-#                
-#                for r in X_pos:
-#                    for c in r:
-#                        outfilerrr.write(str(c))
-#                        outfilerrr.write(',')
-#                    outfilerrr.write('\n')
-#                outfilerrr.write(str(n_clusters_pos))
-#                outfilerrr.close()
-
-            #slide window
-            position += windows_length
-            print(line)
-            line += 1
-            outfile.write('\n')
-            #print(time.time()-start_time)
-            
-        outfile.close()
         
+        flag = 1
+        
+        print("%s: samples %d, channels %d"%(self.name,self.signal.shape()[0],self.signal.shape()[1]) )
+        try:
+            while(1):
+      
+                der_ = self.signal[t,:] - self.signal[t+windows_length,:]
+                #print(der_[0], self.signal[t,0], self.signal[t+windows_length,0] )
+                #se deltaY > deltaX .... calcoli sul quaderno,
+                #qua aggiungo solo deltaX è sempre "window length" perchè è la distanza alla quale sono presi i punti
+                
+                i=0
+                encoded[0] = encoder(der_[0])
+                outfile.write("%c"%encoded[0])
+                for i in range(1,8):
+                    encoded[i] = encoder(der_[i])
+                    outfile.write(',')
+                    outfile.write("%c"%encoded[i])  
+                    
+     
+                #slide window
+                t += windows_length #deve essere almeno superiore alla media mobile
+                
+                #print(line)
+                flag+=1
+                outfile.write('\n')
+                #print(time.time()-start_time)
+        
+        except IndexError:
+                
+            outfile.close()
+            print(flag)
         
 """
 *********************** MAIN **********************
@@ -206,24 +257,27 @@ class offline_process(object):
     
     def __init__(self,filename):
         """ LOAD DATA """
-        data = load_data_into_matrix(filename)
+        data = load_data_into_matrix(filename,0,-1,8)
         
         """ DIVIDE INTO MEANINGFUL CHANNELS """
-        self.polso_alto_track = track(data[:,mode['polso_piegato_alto']])
-        self.polso_basso_track = track(data[:,mode['polso_piegato_basso']])
-        self.polso_esterno_track = track(data[:,mode['polso_ruotato_esterno']])
-        self.polso_interno_track = track(data[:,mode['polso_ruotato_interno']])
+        self.polso_updown = track(data[:,mode['tutti']])
+        #self.polso_intest = track(data[:,mode['intest']])
         
         """ REMOVE BASELINE """
-        self.polso_alto_track.set_baseline()
-        self.polso_basso_track.set_baseline()
-        self.polso_esterno_track.set_baseline()
-        self.polso_interno_track.set_baseline()
+#        self.polso_alto_track.set_baseline()
+#        self.polso_basso_track.set_baseline()
+#        self.polso_esterno_track.set_baseline()
+#        self.polso_interno_track.set_baseline()
+
+        """ LOW PASS FILTER """
+        self.polso_updown.moving_avg(10)
+        #self.polso_intest.moving_avg(30)        
+        
         
         """ START TWO THREADS TO COMPUTE"""
 
-        self.thread_updown = computation("up-down",self.polso_alto_track,self.polso_basso_track)
-        self.thread_leftright = computation("left-right",self.polso_esterno_track,self.polso_interno_track)
+        self.thread_updown = computation("-encoding",self.polso_updown)
+        #self.thread_leftright = computation("intest",self.polso_updown)
 
         
     def __call__(self):
@@ -232,20 +286,127 @@ class offline_process(object):
         
         try:
             self.thread_updown.start()
-            self.thread_leftright.start()
+            #self.thread_leftright.start()
         
             self.thread_updown.join()
-            self.thread_leftright.join()
+            #self.thread_leftright.join()
         except KeyboardInterrupt:
             
-            self.thread_leftright.join()
             self.thread_updown.join()
+            #self.thread_leftright.join()        
+
+class occurrence_table(object):
+    def __init__(self):
+        self.items = []
+        self.number_of_occurrence = []
+        self.l = 0
+        self.total = 0
+    def __repr__(self):
+        return "Object filled with %d items"%self.l
+    def __str__(self):
+        for i in range(self.l):
+            print("%s: %d"%(self.items[i],self.number_of_occurrence[i]))
+        return "----- End ------ "
+    def append(self,item):
+        j=0
+        for occurrence in self.items:
+            if occurrence != item:
+                j=j+1
+            else:
+                self.number_of_occurrence[j]+=1
+                self.total += 1
+                return
+        #se hai fatto tutto il for senza entrare nell'else vuol
+        #dire che è nuovo, quindi lo appendo
+        self.items.append(item)
+        #ovviamente metto nel conteggio che ne ho aggiunto uno
+        self.number_of_occurrence.append(1)
+        self.l += 1
+        self.total += 1
+        #conteggio e item sono due liste separate ma l'elemento
+        #j esimo di number_of.. indica quante volte l'elemento
+        #j esimo di items è presente
+    
+    def get(self):
+        return (self.items,self.number_of_occurrence)
+    
+    def prob(self):
+        temp = [1]*self.l
+        for i in range(self.l):
+            temp[i] = self.number_of_occurrence[i]/self.total
         
+        return temp
 
 if __name__ == "__main__":
     
-    p = offline_process("still_poisitions.txt")
+    
+    p = offline_process("model_updown.txt")
     p()
+    
+    encoded_signal = load_data_into_matrix("thread_data-encoding.txt",mode="encoded")
+
+    entropy = lambda p: 0 if p==0 else -p*np.log2(p)
+    
+    symbols_taken = 3
+    n_samples = encoded_signal.shape[0]
+    window_len = 30
+    start = 0
+    start_for_plot = 0
+    
+    channel = encoded_signal.shape[1]
+    
+    
+    n_steps= window_len - symbols_taken + 1
+    
+    print("n_steps:",n_steps)
+    
+
+    ch = np.zeros((n_samples - window_len,channel),dtype='f')
+    
+    outfile = open('entropy.txt','w')
+
+    while(start < n_samples - window_len):
+        table = []
+        for i in range(channel):
+            table.append(occurrence_table())
+        
+        window = encoded_signal[start:start+window_len,:]
+        for i in range(n_steps):
+            for j in range(channel):
+                table[j].append(window[i:i+symbols_taken,j].tostring())
+        
+        entropy_per_channel = [0]*channel #il massimo dell'entropia quando ho tutto uguale, 3**3 perchè ho 3 simboli per 3 posizioni
+        
+        for j in range(channel):
+            list_of_prob = table[j].prob()
+            #print(list_of_prob)
+            for i in range(len(list_of_prob)):
+                entropy_per_channel[j] += entropy(list_of_prob[i])
+            
+            ch[start_for_plot,j] = entropy_per_channel[j]
+            outfile.write(str(entropy_per_channel[j]))
+            outfile.write('\t')
+            
+        start += 1
+        start_for_plot += 1
+        outfile.write('\n')
+        #print(table[0])
+            
+    outfile.close()
+    
+    fig2, ax2 = plt.subplots(1,1)
+    for p in range(channel):
+        
+        y = ch[:,p]
+        ax2.plot(y,color=colorarray[p],label='ch'+str(p))
+    
+    legend = ax2.legend(loc='upper left', shadow=True)
+    
+    plt.show()
+    
+    
+    
+    #
         
         
         

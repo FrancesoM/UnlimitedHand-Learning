@@ -9,9 +9,20 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import matplotlib.pyplot as plt
 
+def moving_average(data,samp_for_average):
+    n_windows = int(len(data)/samp_for_average)
+    for i in range(n_windows):
+        data[i*samp_for_average:(i+1)*samp_for_average] = np.average(data[i*samp_for_average:(i+1)*samp_for_average])
 
+def grad(data):
+    der = np.zeros((len(data),4))
+    for i in range(1,len(data)):
+        der[i,:] = data[i,:]-data[i-1,:]
+    return der
+        
+int_channel = [0,1,6,7]
 
-graph_data = open('shuffled.txt','r').read()
+graph_data = open('model_updown.txt','r').read()
 
 lines = graph_data.split('\n')
 
@@ -31,8 +42,24 @@ for line in lines[:-1]: #the last acquisition may be corrupted, sudden terminati
         j=0
         i+=1
 
-data = data[20:,:] #truncate values that may be corrupted by the initialization of the serial port
-        
+data = data[:,int_channel]
+
+ustart = 3000
+dstart = 7100
+up = data[ustart:ustart+500,:] #truncate values that may be corrupted by the initialization of the serial port
+down = data[dstart:dstart+500,:]
+
+data = np.vstack((up,down))
+
+fig2, ax2 = plt.subplots(1,1)
+for p in range(len(int_channel)):
+    
+    y = data[:,p]
+    moving_average(y,30)
+    ax2.plot(y)
+    
+data = grad(data)
+
 #Now we have our data stored into a numpy matrix
 
 std = StandardScaler()
@@ -64,24 +91,34 @@ W = np.hstack((eigen_pairs[0][1][:,np.newaxis],
 
 X_PCA = X_std.dot(W)
 
+print(X_PCA)
+
 #2D
 
-plt.scatter(X_PCA[:,0],X_PCA[:,1])
+#fig, ax = plt.subplots(1,1)
+#
+#ax.scatter(X_PCA[0:500,0],X_PCA[0:500,1])
+#ax.scatter(X_PCA[500:1000,0],X_PCA[500:1000,1])
 
 #3D
-#fig = plt.figure()
-#
-#ax = fig.add_subplot(111, projection='3d')
-#
-#xs = X_PCA[:,0]
-#ys = X_PCA[:,1]
-#zs = X_PCA[:,2]
-#
-#ax.scatter(xs, ys, zs)
-#
-#ax.set_xlabel('X Label')
-#ax.set_ylabel('Y Label')
-#ax.set_zlabel('Z Label')
-#
-#
+fig = plt.figure()
+
+ax = fig.add_subplot(111, projection='3d')
+
+xd = X_PCA[0:500,0]
+yd = X_PCA[0:500,1]
+zd = X_PCA[0:500,2]
+
+xu = X_PCA[500:1000,0]
+yu = X_PCA[500:1000,1]
+zu = X_PCA[500:1000,2]
+
+ax.scatter(xd, yd, zd,'o')
+ax.scatter(xu, yu, zu,'*')
+
+ax.set_xlabel('X Label')
+ax.set_ylabel('Y Label')
+ax.set_zlabel('Z Label')
+
+
 plt.show()

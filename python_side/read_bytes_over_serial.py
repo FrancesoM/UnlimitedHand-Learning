@@ -24,30 +24,45 @@ BUNDLE_LENGTH = NUM_CHANNELS*BYTE_PER_CHANNEL
 
 data = np.zeros(NUM_CHANNELS)
 
-graph_data = open('/test/lowtohigh_position.txt','w')
-print("3..")
-time.sleep(0.5)
-print("2..")
-time.sleep(0.5)
-print("1..")
-time.sleep(0.5)
-print("Starting")
+graph_data = open('dataset.txt','w')
 
+print("Gathering recordings for dataset")
+
+
+movement_time = 2.5 #2.5 seconds for each movement
+counter = 0
 while(START):
     try:
+        
+        movement = input("\n\
+                          0: wristle up\n\
+                          1: wristle down\n\
+                          2: wristle rotation out\n\
+                          3: wristle rotation inside\n\
+                          4: hand open\n\
+                          5: hand closed\n")
+        if(movement == 's'):
+            graph_data.close()
+            port.close()
+            break
+        
         start_time = time.time()
-        if(port.read(END_BUNDLE_BYTE).decode("raw_unicode_escape") == '!!!'):
-            temp = port.read(BUNDLE_LENGTH)
-            
-            for channel in range(0,NUM_CHANNELS):
-                data[channel] = (temp[channel*BYTE_PER_CHANNEL]<<8)|(temp[channel*BYTE_PER_CHANNEL + 1 ])
-                #print(data)
-                graph_data.write(str(data[0]))
-                for value in data[1:]:
-                    graph_data.write(',')
-                    graph_data.write(str(value))
-                graph_data.write('\n')
-                #time.sleep(0.1)
+        elapsed = 0
+        while(elapsed < movement_time):
+            if(port.read(END_BUNDLE_BYTE).decode("raw_unicode_escape") == '!!!'):
+                temp = port.read(BUNDLE_LENGTH)
+                
+                for channel in range(0,NUM_CHANNELS):
+                    data[channel] = (temp[channel*BYTE_PER_CHANNEL]<<8)|(temp[channel*BYTE_PER_CHANNEL + 1 ])
+                    #print(data)
+                    for value in data:
+                        graph_data.write(str(value))
+                        graph_data.write(',')
+                    graph_data.write(movement+'\n')
+                    time.sleep(0.01) #constant sampling time
+            elapsed = time.time() - start_time         
+            graph_data.write('-\n')
+                
     except KeyboardInterrupt:
         print("Closing")
         port.close()
