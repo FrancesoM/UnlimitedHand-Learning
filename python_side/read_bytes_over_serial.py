@@ -24,7 +24,7 @@ BUNDLE_LENGTH = NUM_CHANNELS*BYTE_PER_CHANNEL
 
 data = np.zeros(NUM_CHANNELS)
 
-graph_data = open('dataset.txt','w')
+graph_data = open('dataset_10Hz.txt','w')
 
 print("Gathering recordings for dataset")
 
@@ -59,9 +59,9 @@ while(START):
                         graph_data.write(str(value))
                         graph_data.write(',')
                     graph_data.write(movement+'\n')
-                    time.sleep(0.01) #constant sampling time
+                    time.sleep(0.1) #constant sampling time
             elapsed = time.time() - start_time         
-            graph_data.write('-\n')
+        graph_data.write('-\n')
                 
     except KeyboardInterrupt:
         print("Closing")
