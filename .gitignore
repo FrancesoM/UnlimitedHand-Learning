@@ -4,3 +4,15 @@ python_side/__pycache__/
 python_side/dataset\.txt
 
 python_side/datasetpppp\.txt
+
+python_side\*.png
+
+python_side\*.npy
+
+C_side/serial_comm/bin\*
+
+C_side/serial_comm/obj\*
+
+C_side/thread_zero/bin\*
+
+C_side/thread_zero/obj\*
