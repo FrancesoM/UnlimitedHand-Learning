@@ -1,0 +1,20 @@
+# depslib dependency file v1.0
+1498495122 source:c:\users\francesco\desktop\shared\unlimitedhand-learning\c_side\serial_comm\init_.cpp
+	"init_.h"
+
+1498495102 c:\users\francesco\desktop\shared\unlimitedhand-learning\c_side\serial_comm\init_.h
+	<iostream>
+	<stdio.h>
+	<stdlib.h>
+	<windows.h>
+	<tchar.h>
+
+1498500629 source:c:\users\francesco\desktop\shared\unlimitedhand-learning\c_side\serial_comm\main.cpp
+	<iostream>
+	<cstdio>
+	<ctime>
+	<windows.h>
+	<assert.h>
+	<stdio.h>
+	"init_.h"
+
