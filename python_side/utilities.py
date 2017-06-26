@@ -13,7 +13,7 @@ import re
 import matplotlib.pyplot as plt
 
 def load_dataset(file):
-    
+    """ RIFARE INIZIO """
     n_channels = 8
     
     f = open(file,'r')
