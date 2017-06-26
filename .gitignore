@@ -9,10 +9,7 @@ python_side\*.png
 
 python_side\*.npy
 
-C_side/serial_comm/bin\*
+C++_side/serial_comm/bin/*
 
-C_side/serial_comm/obj\*
+C++_side/serial_comm/obj/*
 
-C_side/thread_zero/bin\*
-
-C_side/thread_zero/obj\*
