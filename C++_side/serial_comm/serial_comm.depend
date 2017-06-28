@@ -18,3 +18,33 @@
 	<stdio.h>
 	"init_.h"
 
+1498661191 source:c:\users\francesco\desktop\shared\unlimitedhand-learning\c++_side\serial_comm\main.cpp
+	<iostream>
+	<cstdio>
+	<ctime>
+	<stdio.h>
+	"SerialHandler.h"
+	<queue>
+	<condition_variable>
+	<fstream>
+	<thread>
+	<mutex>
+
+1498495102 c:\users\francesco\desktop\shared\unlimitedhand-learning\c++_side\serial_comm\init_.h
+	<iostream>
+	<stdio.h>
+	<stdlib.h>
+	<windows.h>
+	<tchar.h>
+
+1498495122 source:c:\users\francesco\desktop\shared\unlimitedhand-learning\c++_side\serial_comm\init_.cpp
+	"init_.h"
+
+1498646377 c:\users\francesco\desktop\shared\unlimitedhand-learning\c++_side\serial_comm\include\serialhandler.h
+	"windows.h"
+	"stdio.h"
+	<queue>
+
+1498653237 source:c:\users\francesco\desktop\shared\unlimitedhand-learning\c++_side\serial_comm\src\serialhandler.cpp
+	"SerialHandler.h"
+
