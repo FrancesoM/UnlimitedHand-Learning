@@ -13,3 +13,7 @@ C++_side/serial_comm/bin/*
 
 C++_side/serial_comm/obj/*
 
+
+C\+\+_side/serial_comm/init_\.cpp
+
+C\+\+_side/serial_comm/init_\.h
