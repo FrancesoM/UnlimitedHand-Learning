@@ -1,158 +1,125 @@
 #include <iostream>
 #include <cstdio>
 #include <ctime>
-#include <windows.h>
-#include <assert.h>
 #include <stdio.h>
-#include "init_.h"
+#include "SerialHandler.h"
+#include <queue>
+#include <condition_variable>
+#include <fstream>
+
+#include <thread>
+#include <mutex>
 
 
-#define BYTES_INCOMING 2*8
+std::mutex mut;
+std::queue<__int16 unsigned> input_data_queue;
+std::condition_variable data_cond;
 
-int main()
+bool flag_time_elapsed = 0;
+
+/*
+
+    Documentation in "readme.md"
+
+*/
+
+void read_data_thread(double ms_time)
 {
+    //For COM > 9 USE \\\\.\\COM10
+
+    SerialHandler _S("\\\\.\\COM10",
+                     115200,
+                     1,
+                     0,
+                     8);
+
+    _S.init_serial_port();
+    _S.init_timeouts();
+
+    char s = 's';
     std::clock_t start;
     double duration;
-    HANDLE port;
 
-    BOOL written = 0;
-    BOOL fSuccess = 1;
+    while(!_S.WriteAChar(&s)); //starts communication
 
-    char* port_name = "\\\\.\\COM10";
-    //char* port_name = "COM4";
-    //init_serial_port(port_name,port);
-
-    int dwBaudRate = CBR_115200;
-    int byByteSize = 8;
-    int byParity = NOPARITY;
-    int byStopBits = 1;
-
-    // port name: "\\\\.\\COM10"
-    port = CreateFile( port_name,
-       GENERIC_READ|GENERIC_WRITE,  // access ( read and write)
-       0,                           // (share) 0:cannot share the
-                                    // COM port
-       0,                           // security  (None)
-       OPEN_EXISTING,               // creation : open_existing
-       0,        // we want overlapped operation
-       0                            // no templates file for
-                                    // COM port...
-       );
-
-    if (port == INVALID_HANDLE_VALUE)
-   {
-       //  Handle the error.
-       printf ("CreateFile failed with error %ld.\n", GetLastError());
-       return (1);
-   }
-
-    DCB dcb = {0};
-    dcb.DCBlength = sizeof(DCB);
-
-    if(!GetCommState(port,&dcb)){
-        printf( "CSerialCommHelper : Failed to Get Comm State Reason:%ld",GetLastError());
-        return E_FAIL;
-    }
-
-    dcb.BaudRate  = dwBaudRate;
-    dcb.ByteSize  = byByteSize;
-    dcb.Parity    = byParity;
-    if ( byStopBits == 1 )
-      dcb.StopBits  = ONESTOPBIT;
-    else if (byStopBits == 2 )
-      dcb.StopBits  = TWOSTOPBITS;
-    else
-      dcb.StopBits  = ONE5STOPBITS;
-
-
-    if (!SetCommState (port,&dcb))
-    {
-      //ASSERT(0);
-      printf( "CSerialCommHelper : Failed to Set Comm State Reason:\
-        %ld",GetLastError());
-      return E_FAIL;
-    }
-
-    printf( "CSerialCommHelper : Current Settings are:\nBaud Rate %ld\n\
-Parity %d\nByte Size %d\nStop Bits %d\n",
-           dcb.BaudRate,dcb.Parity,dcb.ByteSize,dcb.StopBits);
-
-
-
-    if (port != INVALID_HANDLE_VALUE)
-   {
-       std::cout << "\nPort succesfully initialized" << std::endl;
-   }
-
-
-  COMMTIMEOUTS timeouts;
-    timeouts.ReadIntervalTimeout       = MAXDWORD;
-    timeouts.ReadTotalTimeoutMultiplier   = 0;
-    timeouts.ReadTotalTimeoutConstant     = 0;
-    timeouts.WriteTotalTimeoutMultiplier  = 0;
-    timeouts.WriteTotalTimeoutConstant    = 0;
-
-    if (!SetCommTimeouts(port, &timeouts))
-       // Error setting time-outs.
-
-   //Set the events we are interested in
-   fSuccess = SetCommMask(port,EV_RXCHAR|EV_RXFLAG);
-
-   if(!fSuccess)
-   {
-       printf("SetCommMask failed with error %ld",GetLastError());
-   }
-
-    DWORD dwRead;
-    __int8 unsigned input_char[BYTES_INCOMING];
-    char to_start = 's';
-    int i = 0;
-    int N = 0;
-
-    DWORD errors;
-    COMSTAT status;
 
     start = std::clock();
-
-    while(N<200)
+    while(!flag_time_elapsed)
     {
-        written = WriteAChar(&to_start,port,&errors,&status);
-        //printf("written: %d\n",written);
-        if(written){
-            ClearCommError(&port,&errors,&status);
-                //read data until we read all the buffer
-                do{
-                    ReadFile(port,&input_char[i],1,&dwRead,NULL);
-                    i++;
-                }while(i<BYTES_INCOMING);
+    std::lock_guard<std::mutex> lk(mut); //lk is the lock guard
 
-//                printf("Bytes Read: %d -> \n\
-//                    ch0:%u\n\
-//                    ch1:%u\n\
-//                    ch2:%u\n\
-//                    ch3:%u\n\
-//                    ch4:%u\n\
-//                    ch5:%u\n\
-//                    ch6:%u\n\
-//                    ch7:%u\n\
-//                       \n",i,
-//                       input_char[0]<<8 | input_char[1],
-//                       input_char[2]<<8 | input_char[3],
-//                       input_char[4]<<8 | input_char[5],
-//                       input_char[6]<<8 | input_char[7],
-//                       input_char[8]<<8 | input_char[9],
-//                       input_char[10]<<8 | input_char[11],
-//                       input_char[12]<<8 | input_char[13],
-//                       input_char[14]<<8 | input_char[15]);
-            }
-//            printf("************** Total Bytes Read: %d ****************",i);
-            i= 0;
-
-        N++;
+    if(_S.Read_FSM(input_data_queue))  //if read succeded
+    {
+        data_cond.notify_one();
     }
 
     duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-    std::cout<<"printf: "<< duration <<'\n';
+
+    if (duration > ms_time){
+        flag_time_elapsed = true;
+        std::cout<< "Elapsed: " << duration << '\n';
+    }
+
+    }
+}
+
+void process_data_thread(char* namefile){
+
+    std::ofstream record;
+    record.open(namefile);
+
+    while(!flag_time_elapsed){
+        std::unique_lock<std::mutex> lk(mut);
+        data_cond.wait(
+                       lk, []{return !input_data_queue.empty();});
+    int upper_limit = input_data_queue.size();
+    for(int i = 0;i<upper_limit;i++)
+    {
+        //std::cout << input_data_queue.front() << std::endl;
+        record << input_data_queue.front() << ',';
+        input_data_queue.pop();
+    }
+
+    record << 'x' << std::endl; //x will be the type of movement.
+
+    lk.unlock();
+
+    }
+
+    record.close();
+
+}
+
+int main(int argc, char** argv)
+{
+    double ms_time;
+    char* namefile;
+    for(int arg = 0;arg<argc;arg++)
+    {
+        char* new_arg = argv[arg];
+        char identifier = new_arg[1];
+        switch(identifier)
+            {
+            case 't':
+                ms_time = static_cast<double> (atoi(argv[arg+1]) );
+                ms_time = ms_time/1000;
+            case 'n':
+                namefile = argv[arg+1];
+            default:
+                ms_time = 1;
+                namefile = "default.txt";
+
+            }
+    }
+
+    std::cout << "Starting Counting: " << ms_time << '\n';
+
+    std::thread read(read_data_thread,ms_time);
+    std::thread process(process_data_thread,namefile);
+
+
+    read.join();
+    process.join();
 
     return 0;
 }
