@@ -1,19 +1,24 @@
 
+#ignore files in the pycache, all the image, and tests.
 python_side/__pycache__/
-
-python_side/dataset\.txt
-
-python_side/datasetpppp\.txt
-
 python_side\*.png
-
 python_side\*.npy
+python_side\*.txt
+
+#ignore executables (which are heavy) and object (since they depends on the target architecture)
+C++_side/SerialTutorial/Serial_Chapter3_tutorial/bin/*
+C++_side/SerialTutorial/Serial_Chapter3_tutorial/obj/*
+C++_side/SerialTutorial/Serial_Chapter3_tutorial\*.txt
 
 C++_side/serial_comm/bin/*
-
 C++_side/serial_comm/obj/*
+C++_side/serial_comm\*.txt
 
-
+#ignore some old files
 C\+\+_side/serial_comm/init_\.cpp
-
 C\+\+_side/serial_comm/init_\.h
+
+#ignore codeblock project files
+\*.cbp
+\*.depend
+\*.layout
