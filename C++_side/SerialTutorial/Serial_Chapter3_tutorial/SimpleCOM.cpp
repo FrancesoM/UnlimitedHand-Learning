@@ -17,7 +17,7 @@ int main()
 	ERR_CODE ecRet = OK;
 	unsigned char movement_code;
 	char const comPortName[] = "\\\\.\\COM10";
-	char const fileName[] = "BinaryDataset";
+	char const fileName[] = "BinaryDataset.bin";
 	char const mode[] = "wb";
 	TestPassed = FALSE;
 
