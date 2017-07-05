@@ -14,6 +14,8 @@
 HANDLE hPort;
 //Monitor the status of the port
 bool TestPassed;
+//File to write data
+FILE* binaryFile;
 
 //Display the menu on the consolle screen.
 const char* const menuData[] =

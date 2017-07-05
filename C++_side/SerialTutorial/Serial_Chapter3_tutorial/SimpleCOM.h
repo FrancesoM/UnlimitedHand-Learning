@@ -43,15 +43,18 @@ typedef struct
 	HANDLE h_Port;
 }SerialCreate, *pSerialCreate;
 
-//Structure that contains parameters necessary for the PortRead() function to receive data from the serial port.
+//Structure that has some handy variables to store values inside this structure
+//It isn't used so much except for the handle. Maybe will be used as a shared structure in a threaded
+//application.
 typedef struct
 {
-	__int8 unsigned pcBuffer[210];
+	__int8 unsigned pcBuffer[20];
 	BYTE bByte;
 	int iMaxChars;
 	int piNumRcvd;
 	char cTermChar;
 	HANDLE handlePort;
+	FILE* binaryFile;
 }CommPortClass;
 
 //enum is used so that each number greater than zero is an error

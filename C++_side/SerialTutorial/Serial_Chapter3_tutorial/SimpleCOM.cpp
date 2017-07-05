@@ -17,7 +17,13 @@ int main()
 	ERR_CODE ecRet = OK;
 	unsigned char movement_code;
 	char const comPortName[] = "\\\\.\\COM10";
+	char const fileName[] = "BinaryDataset";
+	char const mode[] = "wb";
 	TestPassed = FALSE;
+
+
+	//File to which write the received characters
+    binaryFile = fopen( fileName, mode );
 	//Continue to test as long as the process is free of errors.
 
     //Do the actual initialization of the port.
@@ -59,6 +65,7 @@ int main()
 	}
 
 	CloseHandle(hPort);
+	fclose(binaryFile);
 
 	return 0;
 
@@ -99,6 +106,7 @@ ERR_CODE AcquireMovement(BOOL display)
 	CommPortClass* comPort = new CommPortClass;
 	comPort->handlePort = hPort;
 	comPort->iMaxChars = NUM_BYTE;
+	comPort->binaryFile = binaryFile;
 
     //Start communication
     ecRet = PortWrite(hPort, sByte, numByte);

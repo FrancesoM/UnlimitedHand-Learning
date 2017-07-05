@@ -112,7 +112,7 @@ ERR_CODE PortRead(CommPortClass *hCommPort)
 	HANDLE hThread; // handler for port read thread
 	DWORD IDThread;
 	DWORD Ret, ExitCode;
-	DWORD dTimeout = 1000; // define time out value: 5 sec.
+	DWORD dTimeout = 2000; // define time out value: 5 sec.
 	ERR_CODE ecStatus = OK;
 	DWORD dwError;
 	COMSTAT comStatus;
@@ -180,8 +180,9 @@ void WINAPI ThreadFunc(void* hCommPorts)
 	CommPortClass* CommPorts;
 	ERR_CODE ecStatus = OK;
 	COMSTAT comStatus;
+	FILE* f;
 
-
+    //The pointer was void, cast again to the real type.
 	CommPorts = (CommPortClass* )hCommPorts;
 	// Specify a set of events to be monitored for the port.
 	SetCommMask(CommPorts->handlePort, EV_RXCHAR);
@@ -189,6 +190,9 @@ void WINAPI ThreadFunc(void* hCommPorts)
 	WaitCommEvent(CommPorts->handlePort, &dwCommModemStatus, 0);
 	// Re-specify the set of events to be monitored for the port.
 	SetCommMask(CommPorts->handlePort, EV_RXCHAR );
+	//Retrieve the address of the file to write at
+	f = CommPorts->binaryFile;
+
 
     //Flush garbage Routine
 //    while(!garbageFlushed)
@@ -217,7 +221,11 @@ void WINAPI ThreadFunc(void* hCommPorts)
                 // received the char_event
                 // Read the data from the serial port.
                 bResult = ReadFile(CommPorts->handlePort, &CommPorts->bByte, 1, &dwBytesTransferred, 0);
-                if(dwBytesTransferred==1) printf("%02x  ",CommPorts->bByte); //n_ transfered: %ld, totale: %d\n  ",garbageByte,dwBytesTransferred,nTotRead);
+                if(dwBytesTransferred==1)
+                {
+                    printf("%02x  ",CommPorts->bByte);
+                    fwrite(&CommPorts->bByte,sizeof(BYTE),1,f);
+                }
                 //ClearCommError(CommPorts->handlePort,&dwError,&comStatus);
                 //;
             if (!bResult)
@@ -237,7 +245,7 @@ void WINAPI ThreadFunc(void* hCommPorts)
                 nTotRead+=dwBytesTransferred;
                 //printf("%d",nTotRead);
             }
-        }while(nTotRead<=10+200*16);
+        }while(nTotRead<=200*16);
 
         //PurgeComm(CommPorts->handlePort, PURGE_RXCLEAR);
         //printf("\n",garbageByte);
