@@ -64,12 +64,14 @@ class SerialHandler
         BOOL init_timeouts();
 
         //This function does the writing of a character to a port
-        BOOL WriteAChar(char* char_to_send);
+        BOOL WriteAChar(__int8 unsigned* char_to_send);
 
         //This function reads a char from the port
         BOOL ReadAChar_PutInBuffer();
 
         BOOL Read_FSM(std::queue<__int16 unsigned> &input_queue);
+
+        BOOL FlushBuffer();
 
     protected:
 

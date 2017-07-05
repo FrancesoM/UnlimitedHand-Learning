@@ -14,6 +14,7 @@ SerialHandler::SerialHandler(char* port_name,
         if(frame_size == 8) this->byByteSize = 8;
         if(parity == 0) this->byParity = NOPARITY;
 
+
 }
 
 SerialHandler::~SerialHandler()
@@ -87,7 +88,7 @@ BOOL SerialHandler::init_timeouts()
     return SUCCESS;
 }
 
-BOOL SerialHandler::WriteAChar(char *char_to_send)
+BOOL SerialHandler::WriteAChar(__int8 unsigned *char_to_send)
 {
     DWORD bytesSend;
     DWORD err;
@@ -132,10 +133,9 @@ BOOL SerialHandler::ReadAChar_PutInBuffer()
 
 BOOL SerialHandler::Read_FSM(std::queue<__int16 unsigned> &input_queue){
 
-    int i = 0;
+
     int internal_state=0;
     int flag = 1;
-    int total_read = 0;
     BOOL bErrorFlag = FALSE;
     __int8 unsigned current_read;
     DWORD err;
@@ -143,7 +143,7 @@ BOOL SerialHandler::Read_FSM(std::queue<__int16 unsigned> &input_queue){
 
     ClearCommError(this->port_handler,&(this->errors),&(this->status));
 
-    FlushFileBuffers(this->port_handler);
+    //FlushFileBuffers(this->port_handler);
 
     CHECK_ERROR;
 
@@ -182,7 +182,45 @@ BOOL SerialHandler::Read_FSM(std::queue<__int16 unsigned> &input_queue){
 
         }while(flag);
 
+        //ClearCommError(this->port_handler,&(this->errors),&(this->status));
+
+        //printf("Sono rimasti dei byte: %ld\n",this->status.cbInQue );
+
 
     return TRUE;
+
+}
+
+BOOL SerialHandler::FlushBuffer()
+{
+
+    PurgeComm(this->port_handler,PURGE_RXCLEAR);
+
+    BOOL bErrorFlag;
+    char discard_read;
+    ClearCommError(this->port_handler,&(this->errors),&(this->status));
+    int bytes_pending, bufempty;
+    bytes_pending = this->status.cbInQue;
+    printf("Sono rimasti dei byte: %ld\n", bytes_pending );
+    int i = 0;
+
+    if(bytes_pending == 0) bufempty = 1;
+
+    while(!bufempty)
+    {
+        bErrorFlag = ReadFile(this->port_handler,&discard_read,1,&(this->bytesRead),NULL);
+        if(FALSE==bErrorFlag)
+        {
+            printf("Error: %ld",GetLastError());
+        }
+        ClearCommError(this->port_handler,&(this->errors),&(this->status));
+        i++;
+        if(this->status.cbInQue == 0) bufempty = 1;
+
+    }
+
+    printf("Bytes flushed: %d",i);
+
+    return true;
 
 }
