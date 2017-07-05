@@ -22,3 +22,4 @@ C\+\+_side/serial_comm/init_\.h
 \*.cbp
 \*.depend
 \*.layout
+*.txt
