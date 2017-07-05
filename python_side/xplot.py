@@ -14,21 +14,21 @@ def moving_average(data,samp_for_average):
         data[i*samp_for_average:(i+1)*samp_for_average] = np.average(data[i*samp_for_average:(i+1)*samp_for_average])
 
 
-D = ut.load_dataset('test_100Hz.txt')
+#D = ut.load_dataset('
+#movement_kind = ["wrist up",
+#                 "wrist down",test_100Hz.txt')
+#
+#                 "wrist rotation out",
+#                 "wrist rotation inside",
+#                 "hand open",
+#                 "hand closed"]                      
+#
+#active_channels = ut.mode['tutti']
+#
+#X = D[:,:-1,:]
+#classification = D[-1,-1,:]
 
-movement_kind = ["wrist up",
-                 "wrist down",
-                 "wrist rotation out",
-                 "wrist rotation inside",
-                 "hand open",
-                 "hand closed"]                      
-
-active_channels = ut.mode['tutti']
-
-X = D[:,:-1,:]
-classification = D[-1,-1,:]
-
-print(X.shape)
+X,classification = ut.load_from_C_formatting('test.txt')
 
 figures = []
 double = 1

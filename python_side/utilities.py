@@ -12,6 +12,107 @@ import time
 import re
 import matplotlib.pyplot as plt
 
+movement_kind = ["wrist up",
+                 "wrist down",
+                 "wrist rotation out",
+                 "wrist rotation inside",
+                 "hand open",
+                 "hand closed"]  
+
+class up(object): 
+    index_array = []
+    value_array = []
+    def __init__(self):
+        self.index_array.append(0)
+    def update(self,index,value):
+        self.index_array.append(index)
+        self.value_array.append(value)
+        
+        
+def load_from_C_formatting(file):
+    f = open(file,'r').read()
+    
+    temp = f.split('\n')
+    
+    Ltemp =  len(temp)
+    
+    state = int(temp[0][-1])
+    start_index = 0
+    
+    X = []
+    Y = []
+    
+    for j in range(1,Ltemp-1):
+        new_state = int(temp[j][-1])
+        if(int(new_state != state)):
+            Xraw = temp[start_index:j-1]
+            start_index = j
+            
+            L = len(Xraw)
+            X_current = np.zeros((L,8))
+            
+            i = 0
+            k = 0
+            
+            for line in Xraw:
+                #print(line[:-2])
+                for value in line[:-2].split(','):
+                    
+                    X_current[i,k] = value
+                    k+=1
+                i+=1
+                k=0
+            
+            Y.append(state)
+            X.append(X_current)
+            
+        state = new_state
+        
+    #last start index is the index of the last recording
+    
+    Xraw = temp[start_index:-1]
+    
+    L = len(Xraw)
+    X_current = np.zeros((L,8))
+        
+    i = 0
+    k = 0
+    
+    for line in Xraw:
+        #print(line[:-2])
+        for value in line[:-2].split(','):
+            
+            X_current[i,k] = value
+            k+=1
+        i+=1
+        k=0
+    
+    Y.append(state)
+    X.append(X_current)
+    
+    
+    figures = []
+    
+    for movement in np.unique(Y):     
+        
+        figures.append(plt.subplots(1,1))
+        for p in [2,3,4,5,6,7]:
+            y = X[movement][:,p]
+            moving_average(y,10)
+            
+            #figures è una tupla (fig,axes) e noi dobbiamo
+            #plottare su axes
+            movement = int(movement)
+            figures[movement][1].plot(y,color=colorarray[p],label='ch'+str(p))
+            
+        legend = figures[movement][1].legend(loc='upper left', shadow=True)
+        figures[movement][0].suptitle(movement_kind[movement])
+    
+    plt.show()
+ 
+    return (X,Y)
+    
+
 def load_dataset(file):
     """ RIFARE INIZIO """
     n_channels = 8
