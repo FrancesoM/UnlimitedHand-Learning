@@ -22,14 +22,21 @@
 
 #define DISPLAY(buf) for(int KK = 0;KK < 210;KK++) printf("%02x ",buf[KK]); printf("\n");
 
-#define MOVEUP      0
-#define MOVDOWN     1
-#define ROTOUT      2
-#define ROTIN       3
-#define HANDOPEN    4
-#define HANDCLOSE   5
-#define EXITPROG    10
-#define NULLSELECTION 11
+#define MOVEUP      'a'
+#define MOVDOWN     'b'
+#define ROTOUT      'c'
+#define ROTIN       'd'
+#define HANDOPEN    'e'
+#define HANDCLOSE   'f'
+#define EXITPROG    'q'
+#define NULLSELECTION 'n'
+
+#define NAMEOFFSET(off) off=0;
+#define SIZEOFFSET(off) off=50;
+#define DATAOFFSET(off) off=100;
+#define NAMELENGTH 50
+#define SIZELEGHT 50
+
 
 //Structure contains some parameters needed to set up and configure the serial port to be tested.
 typedef struct
@@ -89,7 +96,7 @@ ERR_CODE PortRead(CommPortClass *hCommPort);
 void WINAPI ThreadFunc(void* hCommPorts);
 
 //These last three functions are a middle layer that will call the previous functions to access the serial port to fullfill the desired tasks.
-int getMenuItem(unsigned char mPort);
+char getMenuItem(unsigned char mPort);
 ERR_CODE SetupPort(char const comPortName[]);
 ERR_CODE AcquireMovement(BOOL display);
 #endif
