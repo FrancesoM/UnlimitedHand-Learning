@@ -23,3 +23,9 @@ C\+\+_side/serial_comm/init_\.h
 \*.depend
 \*.layout
 *.txt
+
+*.exe
+
+*.o
+
+*.bin
