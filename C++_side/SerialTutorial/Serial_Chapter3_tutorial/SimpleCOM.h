@@ -22,14 +22,14 @@
 
 #define DISPLAY(buf) for(int KK = 0;KK < 210;KK++) printf("%02x ",buf[KK]); printf("\n");
 
-#define MOVEUP      'a'
-#define MOVDOWN     'b'
-#define ROTOUT      'c'
-#define ROTIN       'd'
-#define HANDOPEN    'e'
-#define HANDCLOSE   'f'
-#define EXITPROG    'q'
-#define NULLSELECTION 'n'
+#define MOVEUP      0
+#define MOVDOWN     1
+#define ROTOUT      2
+#define ROTIN       3
+#define HANDOPEN    4
+#define HANDCLOSE   5
+#define EXITPROG    100
+#define NULLSELECTION 200
 
 #define NAMEOFFSET(off) off=0;
 #define SIZEOFFSET(off) off=50;

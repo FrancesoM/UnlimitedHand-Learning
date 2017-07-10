@@ -13,7 +13,7 @@ int main()
 	bool select = TRUE;
 	//receive user selection
 	char userInput[16];
-	char movement;
+	__int8 movement;
 	ERR_CODE ecRet = OK;
 	unsigned char movement_code;
 	char const comPortName[] = "\\\\.\\COM10";
@@ -93,7 +93,7 @@ int main()
 		else
 		{
 		    //write to the file the choice
-            fwrite((void*)&movement, sizeof(char), 1 ,binaryFile);
+            fwrite((void*)&movement, sizeof(__int8), 1 ,binaryFile);
 		    counter_of_movements++;
 
 			//Do the acquisition, if it is ok go on.
@@ -193,9 +193,9 @@ ERR_CODE AcquireMovement(BOOL display)
 	return ecRet;
 }
 
-char getMenuItem(unsigned char mPort)
+__int8 getMenuItem(unsigned char mPort)
 {
-	char ret;
+	__int8 ret;
 	switch (mPort)
 	{
 	case 'A':

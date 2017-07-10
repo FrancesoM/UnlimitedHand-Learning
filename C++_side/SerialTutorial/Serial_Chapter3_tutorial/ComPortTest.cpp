@@ -112,7 +112,7 @@ ERR_CODE PortRead(CommPortClass *hCommPort)
 	HANDLE hThread; // handler for port read thread
 	DWORD IDThread;
 	DWORD Ret, ExitCode;
-	DWORD dTimeout = 2000; // define time out value: 5 sec.
+	DWORD dTimeout = 5000; // define time out value: 5 sec.
 	ERR_CODE ecStatus = OK;
 	DWORD dwError;
 	COMSTAT comStatus;
@@ -149,7 +149,7 @@ ERR_CODE PortRead(CommPortClass *hCommPort)
 			{
 				TerminateThread(hThread, ExitCode);
 				CloseHandle(hThread);
-				printf("Error from line 152: %d\n",ecStatus);
+				//printf("Error from line 152: %d\n",ecStatus);
 				return EC_RECV_TIMEOUT;
 			}
 			else
@@ -223,7 +223,7 @@ void WINAPI ThreadFunc(void* hCommPorts)
                 bResult = ReadFile(CommPorts->handlePort, &CommPorts->bByte, 1, &dwBytesTransferred, 0);
                 if(dwBytesTransferred==1)
                 {
-                    printf("%02x  ",CommPorts->bByte);
+                    //printf("%02x  ",CommPorts->bByte);
                     fwrite(&CommPorts->bByte,sizeof(BYTE),1,f);
                 }
                 //ClearCommError(CommPorts->handlePort,&dwError,&comStatus);
