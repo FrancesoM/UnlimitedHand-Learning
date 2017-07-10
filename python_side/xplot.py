@@ -8,6 +8,8 @@ import utilities as ut
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+
 def moving_average(data,samp_for_average):
     n_windows = int(len(data)/samp_for_average)
     for i in range(n_windows):
