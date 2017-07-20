@@ -6,7 +6,55 @@
 *****************************************************************************/
 #include "SimpleCOM.h"
 #include "Menu.h"
-int main()
+
+bool acquiring = 1;
+std::mutex m;
+__int8 unsigned sByte;
+char name[NAMELENGTH];
+int state = IDLE;
+
+void control(int id){
+    m.lock();
+
+    //Write all zeros, then scanf will overwrite.
+	for(int N = 0;N < NAMELENGTH; N++) name[N] = 0;
+
+    printf("Insert name of the file\n");
+	scanf("%s",name);
+
+	m.unlock();
+
+	char input;
+	while(state != EXITPROG){
+        scanf("%c",&input);
+        switch(input){
+        case 'c':
+            sByte = input;
+            acquiring = 0;
+            state = CALIBRATION;
+            break;
+        case 'e':
+            sByte = input;
+            acquiring = 0;
+            state = IDLE;
+            break;
+        case 's':
+            sByte = input;
+            acquiring = 1;
+            state = ACQUISITION;
+            break;
+        case 'q':
+            sByte = input;
+            acquiring = 0;
+            state = IDLE;
+            break;
+
+        }
+	}
+
+}
+
+int serial(int id)
 {
 	int index;
 	//Boolean variable used to understed whether the loop continues to run or stop
@@ -17,29 +65,26 @@ int main()
 	ERR_CODE ecRet = OK;
 	unsigned char movement_code;
 	char const comPortName[] = "\\\\.\\COM10";
-	char const fileName[] = "BinaryDataset.bin";
+	//char const fileName[] = "BinaryDataset.bin";
 	char const mode[] = "wb";
 	TestPassed = FALSE;
 
-
-	//File to which write the received characters
-    binaryFile = fopen( fileName, mode );
 	//Continue to test as long as the process is free of errors.
-
-	//Put a name for the dataset
-	char name[NAMELENGTH];
-	//Write all zeros, then scanf will overwrite.
-	for(int N = 0;N < NAMELENGTH; N++) name[N] = 0;
-
-	scanf("%s",name);
 
     int offset;
     //Some macro helps to set the correct offset
+
+    m.lock();
+
+    //File to which write the received characters
+    binaryFile = fopen( name, mode );
 
     //Write the name on the file
     NAMEOFFSET(offset)
         fseek(binaryFile,offset,SEEK_SET);
         for(int pos_in_name = 0;pos_in_name < NAMELENGTH; pos_in_name++) fwrite((void*)&name[pos_in_name],sizeof(char),1,binaryFile);
+
+    m.unlock();
 
     //Write all zeros to the size section, since this will be updated after quitting the while loop
     SIZEOFFSET(offset)
@@ -61,17 +106,56 @@ int main()
     DATAOFFSET(offset)
         fseek(binaryFile,offset,SEEK_SET);
 
+
 	while(select)
 	{
-		printf("\n");
+		switch(state){
 
-        //Do the acquisition, if it is ok go on.
-        ecRet = AcquireMovement(1);
-        if (ecRet)
-        {
-            select = FALSE;
+        case CALIBRATION:
+            //Tell the micro to stop send values
+            ecRet = PortWrite(hPort, 'e', NUM_BYTE);
+            if (ecRet)
+            {
+                printf("PortWrite() is failed\n");
+                TestPassed = FALSE;
+                CloseHandle(hPort);
+                return EC_WRITE_FAIL;
+            }
+
+            //Do the calibration
+            ecRet = PortWrite(hPort, 'c', NUM_BYTE);
+            if (ecRet)
+            {
+                printf("PortWrite() is failed\n");
+                TestPassed = FALSE;
+                CloseHandle(hPort);
+                return EC_WRITE_FAIL;
+            }
+            state = IDLE;
             break;
-        }
+
+        case ACQUISITION:
+            ecRet = AcquireMovement(1);
+            switch(ecRet)
+            {
+            case EC_RECV_TIMEOUT:
+                //Everything's ok, keep acquiring
+                break;
+
+            case EC_EXIT_CODE:
+                //User wants to stop, block the while
+                select = FALSE;
+                break;
+            }
+            break;
+
+        case IDLE:
+            if(sByte == 'q')
+                select = FALSE;
+            break;
+
+		}
+
     }
 
 
@@ -111,24 +195,12 @@ ERR_CODE SetupPort(char const cPort[])
 
 ERR_CODE AcquireMovement(BOOL display)
 {
-	__int8 unsigned sByte = 0x73;
-	int numByte = NUM_BYTE;//, MaxByte = MAX_BYTE;
+
 	ERR_CODE ecRet = OK;
 	CommPortClass* comPort = new CommPortClass;
 	comPort->handlePort = hPort;
 	comPort->iMaxChars = NUM_BYTE;
 	comPort->binaryFile = binaryFile;
-
-    //Start communication
-    ecRet = PortWrite(hPort, sByte, numByte);
-    if (ecRet)
-    {
-        printf("PortWrite() is failed\n");
-        TestPassed = FALSE;
-        CloseHandle(hPort);
-        return EC_WRITE_FAIL;
-    }
-
 
     //Read the incoming stream
     ecRet = PortRead(comPort);
@@ -137,13 +209,13 @@ ERR_CODE AcquireMovement(BOOL display)
     //closed. If instead the error is timeout, everything's ok and we can keep acquiring movements.
     if (ecRet != EC_RECV_TIMEOUT)
     {
-        printf("PortRead() is failed\n");
-        TestPassed = FALSE;
-        CloseHandle(hPort);
-        return EC_READ_FAIL;
+        if(ecRet != EC_EXIT_CODE){
+            printf("PortRead() is failed\n");
+            TestPassed = FALSE;
+            CloseHandle(hPort);
+            return EC_READ_FAIL;
+        }
     }
-
-    ecRet = OK;
 
 	delete comPort;
 	return ecRet;
@@ -180,6 +252,17 @@ __int8 getMenuItem(unsigned char mPort)
 	ret = NULLSELECTION;
 	}
 	return ret;
+}
+
+int main(){
+
+    std::thread Control(control,0);
+    std::thread SerialComm(serial,1);
+
+    SerialComm.join();
+    Control.join();
+
+    return 0;
 }
 
 
